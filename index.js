@@ -1,7 +1,7 @@
 const Discord = require('discord.js');
 const client = new Discord.Client();
 const clientId = "583046940002877450";
-const clientToken = "NTgzMDQ2OTQwMDAyODc3NDUw.XO7-bg.US7YhEbLP8LkzzyaNoLSEeRaf0U";
+const clientToken = "";
 
 client.on('ready', () => {
   console.log(`Logged in as ${client.user.tag}!`);
@@ -20,5 +20,14 @@ client.on('message', message => {
   }
 });
 
+// Emitted when the client's WebSocket disconnects and will no longer attempt to reconnect
+client.on("disconnect", function(event){
+  console.log(`The WebSocket has closed and will no longer attempt to reconnect`);
+});
+
+// Emitted whenever the client's WebSocket encounters a connection error.
+client.on("error", function(error){
+  console.error(`client's WebSocket encountered a connection error: ${error}`);
+});
 
 client.login(clientToken);
