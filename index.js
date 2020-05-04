@@ -1,28 +1,14 @@
 const Discord = require('discord.js');
 const client = new Discord.Client();
-const clientId = "583046940002877450";
-const clientToken = "NTgzMDQ2OTQwMDAyODc3NDUw.XO8DGA.wv4BkGnBeoFSnQTJBDzu8i-2Clc";
-const mysql = require('mysql');
-var connection = mysql.createConnection({
-  host     : 'localhost',
-  port     : '3306',
-  user     : 'root',
-  password : 'exampleroot',
-  database : 'apexguild'
-});
-const createTables = {
-  "users": `create table if not exists users(
-    id int primary key auto_increment,
-    name varchar(255)not null,
-    is_logged tinyint(1) not null default 0)`
-}
-var DB = {
-  "users": []
-}
+const config = require('./config');
+const database = require("./database");
+const connection = database(config.db)
+const api = require('./api.js')(config.apiKey)
+
 
 const embed = {
-  "title": "Apex Guild Bot",
-  "description": "```\nUsers list```",
+  "title": "Apex Legends Stats",
+  "description": "```replace_me```",
   "url": "https://github.com/netzulo/apexguild",
   "color": 9492814,
   "timestamp": "2019-06-02T24:00:00.872Z",
@@ -46,11 +32,6 @@ const embed = {
 
 client.on('ready', () => {
   console.log(`Logged in as ${client.user.tag}!`);
-  console.log(`Connecting DB...`)
-  connection.connect();
-  console.log(`Connected DB!`)
-  // console.log(`CREATE tables IF doesn't exists...`)
-  // dbQuery(createTables.users)
   console.log(`------------ BOT ready -----------`)
 });
 
@@ -60,35 +41,59 @@ client.on('message', message => {
   if (message.author.username !== "apexguild") {
     console.log(`Chat by ${message.author.username}: ${message.content}`);
   }
-  // If the message is "what is my avatar"
-  if (message.content === '$avatar') {
-    // Send the user's avatar URL
-    message.reply(message.author.avatarURL);
-  }
-  if (message.content === '$list') {
-    /* WIP
-     1. transform user data to embed data
-     2. generate new embed data
-     3. delete all text in channel
-     4. write new updated embed code
-    */
-    let usersQuery = 'SELECT id,name,is_logged from users';
-      connection.query(usersQuery, function (error, results, fields) {
-        if (error) {
-          console.log(error.message);
-          throw error;
-        }
-        results.forEach(user =>{
-          embed.fields.push(
-            {
-              "name": user.name,
-              "value": `ID=${user.id}, IS_LOGGED=${user.is_logged}`
-            }
-          );
+  //If the message it's for API "stats"
+  if (message.content === '$stats') {
+    // Search Apex profile based on nickname of user
+    let member = message.guild.members.get(message.member.id);
+    let name = member.nickname || member.user.username
+    api.getDetailedPlayer(name, "PC").then((response)=>{
+      //Prepare embed message
+      rankImage = response.metadata.rankImage;
+      avatarImage = response.metadata.avatarUrl
+      // replace
+      embed.thumbnail.url = rankImage;
+      embed.author.name = name;
+      embed.author.url = avatarImage;
+      embed.author.icon_url = rankImage;
+      embed.description = `\`\`\`${response.metadata.rankName}\`\`\``;
+      embed.image.url = response.metadata.avatarUrl;
+      embed.footer.icon_url = avatarImage;
+      // fill up stats
+      response.children.forEach(apexLegend => {
+        let name = apexLegend.metadata.legend_name;
+        let kills = "Not found";
+        let ratio = "Not found";
+        let damage = "Not found";
+        apexLegend.stats.forEach(stat => {
+          if (stat.metadata.key === "Kills"){
+            kills = stat.value;
+            return;
+          }
         });
-        // users
-        message.reply(message.author.avatarURL, { embed });
-    });
+        apexLegend.stats.forEach(stat => {
+          if (stat.metadata.key === "KillsPerMatch"){
+            ratio = stat.value;
+            return;
+          }
+        });
+        apexLegend.stats.forEach(stat => {
+          if (stat.metadata.key === "DamagePerMatch"){
+            damage = stat.value;
+            return;
+          }
+        });
+        let field = {
+          "name": name,
+          "value": `Kills: ${kills}, Ratio: ${ratio}, Damage: ${damage}`
+        };
+        embed.fields.push(field);
+      });
+      message.reply(message.author.username, { embed });
+      // message.reply(player);
+    })
+    .catch((err)=>{
+      message.reply("Error at find player");
+    })
   }
 });
 
@@ -105,4 +110,4 @@ client.on("error", function(error){
   connection.end();
 });
 
-client.login(clientToken);
+client.login(config.clientToken);
